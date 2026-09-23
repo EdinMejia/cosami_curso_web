@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GlobalFormat | Finanzas Internacionales</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #38bdf8;
+            --border: #334155;
+            --radius: 12px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, sans-serif; }
+        
+        body { background-color: var(--bg); color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1.5rem; }
+        
+        .container { background: var(--surface); padding: 2.5rem; border-radius: var(--radius); width: 100%; max-width: 450px; border: 1px solid var(--border); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+        
+        header { text-align: center; margin-bottom: 2rem; }
+        header h1 { font-size: 1.8rem; font-weight: 600; color: var(--accent); margin-bottom: 0.5rem; }
+        
+        .form-group { margin-bottom: 1.5rem; }
+        label { display: block; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+        
+        input, select { width: 100%; padding: 0.85rem; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); font-size: 1rem; outline: none; transition: border 0.3s; }
+        input:focus, select:focus { border-color: var(--accent); }
+        
+        .receipt { margin-top: 2rem; background: #0b1120; padding: 1.5rem; border-radius: 8px; border: 1px dashed var(--border); }
+        .receipt h3 { font-size: 1rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1rem; text-align: center; border-bottom: 1px dashed var(--border); padding-bottom: 0.5rem; }
+        
+        .receipt-row { display: flex; justify-content: space-between; margin-bottom: 0.75rem; font-size: 1.1rem; }
+        .receipt-row.total { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); font-weight: 700; color: var(--accent); font-size: 1.3rem; }
+        
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>GlobalFormat</h1>
+        <p>Motor de formateo de divisas (Intl.NumberFormat)</p>
+    </header>
+
+    <form id="formatForm">
+        <div class="form-group">
+            <label for="amount">Monto Financiero (Sin formato)</label>
+            <input type="number" id="amount" step="any" placeholder="Ej. 15000.50" required>
+        </div>
+
+        <div class="form-group">
+            <label for="currencyConf">Región y Moneda de destino</label>
+            <select id="currencyConf">
+                <!-- Value format: locale|currency|taxRate -->
+                <option value="es-GT|GTQ|0.12">🇬🇹 Guatemala (Q) - IVA 12%</option>
+                <option value="en-US|USD|0.08">🇺🇸 Estados Unidos ($) - Tax 8%</option>
+                <option value="es-ES|EUR|0.21">🇪🇸 España (€) - IVA 21%</option>
+                <option value="ja-JP|JPY|0.10">🇯🇵 Japón (¥) - Consumo 10%</option>
+            </select>
+        </div>
+    </form>
+
+    <div id="receiptCard" class="receipt hidden">
+        <h3>Desglose Generado</h3>
+        <div class="receipt-row">
+            <span>Subtotal:</span>
+            <span id="outSubtotal"></span>
+        </div>
+        <div class="receipt-row">
+            <span id="taxLabel">Impuestos:</span>
+            <span id="outTax"></span>
+        </div>
+        <div class="receipt-row total">
+            <span>TOTAL:</span>
+            <span id="outTotal"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+    const amountInput = document.getElementById('amount');
+    const currencyConf = document.getElementById('currencyConf');
+    const receiptCard = document.getElementById('receiptCard');
+    
+    // Función central que usa Intl.NumberFormat como pedía el reto
+    function formatCurrency(value, locale, currency) {
+        return new Intl.NumberFormat(locale, {
+            style: 'currency',
+            currency: currency,
+            minimumFractionDigits: 2
+        }).format(value);
+    }
+
+    function calculateAndFormat() {
+        const rawAmount = parseFloat(amountInput.value);
+        
+        if (isNaN(rawAmount) || rawAmount <= 0) {
+            receiptCard.classList.add('hidden');
+            return;
+        }
+
+        // Extraer la configuración del select
+        const config = currencyConf.value.split('|');
+        const locale = config[0];
+        const currency = config[1];
+        const taxRate = parseFloat(config[2]);
+
+        // Cálculos matemáticos
+        const taxAmount = rawAmount * taxRate;
+        const totalAmount = rawAmount + taxAmount;
+
+        // Formateo e Inyección en el DOM
+        document.getElementById('outSubtotal').textContent = formatCurrency(rawAmount, locale, currency);
+        document.getElementById('taxLabel').textContent = `Impuesto (${(taxRate * 100).toFixed(0)}%):`;
+        document.getElementById('outTax').textContent = formatCurrency(taxAmount, locale, currency);
+        document.getElementById('outTotal').textContent = formatCurrency(totalAmount, locale, currency);
+
+        receiptCard.classList.remove('hidden');
+    }
+
+    // Escuchar eventos en tiempo real (se actualiza sin presionar botones)
+    amountInput.addEventListener('input', calculateAndFormat);
+    currencyConf.addEventListener('change', calculateAndFormat);
+</script>
+</body>
+</html>

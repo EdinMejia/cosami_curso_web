@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartBudget Edwin</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+            --accent: #0f172a;
+            --accent-hover: #334155;
+            --focus-ring: rgba(15, 23, 42, 0.15);
+            --radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1.5rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 420px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        main {
+            background: var(--surface);
+            padding: 2rem;
+            border-radius: var(--radius);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.02);
+            border: 1px solid var(--border);
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background-color: var(--surface);
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--focus-ring);
+        }
+
+        button {
+            width: 100%;
+            padding: 0.85rem;
+            margin-top: 0.5rem;
+            background-color: var(--accent);
+            color: #ffffff;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        button:hover {
+            background-color: var(--accent-hover);
+        }
+
+        #resultCard {
+            margin-top: 2rem;
+            padding: 1.25rem;
+            background-color: var(--bg);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            animation: fadeIn 0.3s ease;
+        }
+
+        #resultCard[hidden] {
+            display: none;
+        }
+
+        #resultHours {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            line-height: 1.4;
+        }
+
+        #resultAdvice {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        #resultAdvice strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SmartBudget</h1>
+            <p>Práctica para realizar compras inteligentes</p>
+        </header>
+        <main>
+            <form id="budgetForm">
+                <div class="input-group">
+                    <label for="itemname">Ingresa el producto</label>
+                    <input type="text" id="itemname" name="itemname" required autocomplete="off">
+                </div>
+                <div class="grid-2">
+                    <div class="input-group">
+                        <label for="itemprice">Precio Q</label>
+                        <input type="number" id="itemprice" name="itemprice" min="0.01" step="any" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="monthlySalary">Sueldo mensual Q</label>
+                        <input type="number" id="monthlySalary" placeholder="3000" min="1" step="any" required>
+                    </div>
+                </div>
+                <button type="submit">Analizar impacto financiero</button>
+            </form> 
+            <section id="resultCard" hidden>
+                <h2 id="resultHours"></h2>
+                <p id="resultAdvice"></p>
+            </section>
+        </main>
+    </div>
+    <script>
+        const budgetForm = document.getElementById("budgetForm");
+        const resultCard = document.getElementById("resultCard");
+        const resultHours = document.getElementById("resultHours");
+        const resultAdvice = document.getElementById("resultAdvice");
+     
+        budgetForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const item = document.getElementById("itemname").value;
+            const price = parseFloat(document.getElementById("itemprice").value);
+            const salary = parseFloat(document.getElementById("monthlySalary").value);
+            if (salary <= 0) return;
+            const hourlyRate = salary / 160;
+            const hoursNeeded = (price / hourlyRate).toFixed(1);
+          
+            resultHours.textContent = `⏱️ Para comprar "${item}" debes trabajar ${hoursNeeded} horas.`;
+            if (hoursNeeded > 40) {
+                resultAdvice.innerHTML = '<strong>Atención:</strong> Esta compra equivale a más de una semana de trabajo. Considera esperar 48 horas antes de comprarla.';
+            } else if (hoursNeeded > 10) {
+                resultAdvice.innerHTML = '<strong>Evaluación Moderada:</strong> Representa un esfuerzo considerable. Asegúrate de que no afecte tus gastos mensuales.';
+            } else {
+                resultAdvice.innerHTML = '<strong>Compra Accesible:</strong> Esta compra representa un porcentaje bajo de tus horas laborales.';
+            }
+            resultCard.removeAttribute('hidden');
+        });
+    </script>
+</body>
+</html>
