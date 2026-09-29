@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechStore</title>
+</head>
+<body>
+    <h1>Carrito Conectado a Firebase</h1>
+    <button id="testBtn">Probar Guardado en BD</button>
+    <ul id="cartList"></ul>
+    <script>
+        const DB_URL = "https://techstore-web-786c8-default-rtdb.firebaseio.com/carrito.json";
+
+        async function obtenerCarrito() {
+            try {
+                const res = await fetch(DB_URL);
+                const data = await res.json();
+                console.log("Datos recibidos de Firebase:", data);
+            } catch (error) {
+                console.error("Error al conectar con Firebase:", error);
+            }
+        }
+        async function guardarProductoPrueba() {
+            const nuevoProducto = {
+                name: "Teclado Mecánico RGB",
+                price: 85.00
+            };
+
+            try {
+                const res = await fetch(DB_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(nuevoProducto)
+                });
+                if (res.ok) {
+                    alert("¡Producto guardado exitosamente en Firebase!");
+                    obtenerCarrito();
+                }
+            } catch (error) {
+                console.error("Error al guardar:", error);
+            }
+        }
+        document.getElementById("testBtn").addEventListener("click", guardarProductoPrueba);
+
+        obtenerCarrito();
+    </script>
+</body>
+</html>
