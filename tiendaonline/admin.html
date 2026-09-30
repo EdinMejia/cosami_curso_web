@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechStore | Administrador y Analíticas</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js para las gráficas -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body { font-family: 'Poppins', sans-serif; background-color: #f4f6f9; }
+        .table-hover tbody tr:hover { background-color: #e9ecef; }
+        .dashboard-card { border-radius: 12px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body class="bg-light pb-5"> 
+    
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark bg-primary mb-4 shadow">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand fw-bold" href="#"><i class="bi bi-shield-lock"></i> Panel Administrador</a>
+            <div>
+                <a href="index.html" class="btn btn-outline-light btn-sm me-3"><i class="bi bi-shop"></i> Ir a Tienda (Cliente)</a>
+                <span id="networkStatus" class="badge bg-success fs-6"><i class="bi bi-check-circle"></i> Conectado a Firebase</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container-fluid px-4 px-md-5">
+        
+        <!-- DASHBOARD DE ANALÍTICAS (NUEVO) -->
+        <h4 class="fw-bold mb-3"><i class="bi bi-graph-up-arrow text-primary"></i> Dashboard de Ventas</h4>
+        <div class="row g-4 mb-5">
+            <!-- Gráfica 1: Productos más vendidos -->
+            <div class="col-md-4">
+                <div class="card dashboard-card h-100 p-3">
+                    <h6 class="text-muted fw-bold text-center"><i class="bi bi-bar-chart-fill"></i> Productos Más Vendidos</h6>
+                    <div style="height: 250px; display: flex; justify-content: center;">
+                        <canvas id="chartBestSellers"></canvas>
+                    </div>
+                </div>
+            </div>
+            <!-- Gráfica 2: Ingresos a lo largo del tiempo -->
+            <div class="col-md-4">
+                <div class="card dashboard-card h-100 p-3">
+                    <h6 class="text-muted fw-bold text-center"><i class="bi bi-cash-coin"></i> Tendencia de Ingresos ($)</h6>
+                    <div style="height: 250px; display: flex; justify-content: center;">
+                        <canvas id="chartRevenue"></canvas>
+                    </div>
+                </div>
+            </div>
+            <!-- Gráfica 3: Stock actual -->
+            <div class="col-md-4">
+                <div class="card dashboard-card h-100 p-3">
+                    <h6 class="text-muted fw-bold text-center"><i class="bi bi-pie-chart-fill"></i> Inventario por Categoría</h6>
+                    <div style="height: 250px; display: flex; justify-content: center;">
+                        <canvas id="chartStock"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Formulario de Alta -->
+            <div class="col-xl-3 col-lg-4">
+                <div class="card dashboard-card border-top border-primary border-5 h-100">
+                    <div class="card-body">
+                        <h5 class="mb-4 fw-bold"><i class="bi bi-plus-circle text-primary"></i> Nuevo Producto</h5>
+                        <form id="formProducto" class="row g-3">
+                            <div class="col-12"><input type="text" id="prodNombre" class="form-control" placeholder="Nombre" required></div>
+                            <div class="col-6"><input type="number" id="prodPrecio" step="0.01" class="form-control" placeholder="Precio ($)" required></div>
+                            <div class="col-6"><input type="number" id="prodStock" class="form-control" placeholder="Stock" required></div>
+                            <div class="col-12">
+                                <select id="prodCategoria" class="form-select" required>
+                                    <option value="" disabled selected>Categoría...</option>
+                                    <option value="Periféricos">Periféricos</option>
+                                    <option value="Pantallas">Pantallas</option>
+                                    <option value="Audio">Audio</option>
+                                    <option value="Accesorios">Accesorios</option>
+                                </select>
+                            </div>
+                            <div class="col-12"><input type="url" id="prodImagen" class="form-control" placeholder="URL Imagen" required></div>
+                            <div class="col-12"><button type="submit" class="btn btn-primary w-100 fw-bold">Guardar Producto</button></div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla de Inventario -->
+            <div class="col-xl-9 col-lg-8">
+                <div class="card dashboard-card h-100">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-0">
+                        <h5 class="m-0 fw-bold"><i class="bi bi-table text-primary"></i> Gestión de Inventario</h5>
+                        <select id="sortFilterAdmin" class="form-select w-auto bg-light text-primary fw-bold">
+                            <option value="nameAsc">Nombre: A - Z</option>
+                            <option value="priceAsc">Precio: Menor a Mayor</option>
+                            <option value="priceDesc">Precio: Mayor a Menor</option>
+                            <option value="stockAsc">Stock: Crítico primero</option>
+                        </select>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-hover align-middle m-0">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th>Img</th>
+                                        <th>Nombre</th>
+                                        <th>Categoría</th>
+                                        <th>Precio</th>
+                                        <th class="text-center">Stock (Ajuste)</th>
+                                        <th class="text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inventoryTableBody">
+                                    <!-- Filas generadas por JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Feedback Visual Flotante (Toast) -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-4">
+        <div id="actionToast" class="toast align-items-center border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body fw-bold text-white fs-6" id="toastMessage"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        const BASE_URL = "https://techstore-web-786c8-default-rtdb.firebaseio.com"; 
+        const PRODUCTOS_URL = `${BASE_URL}/productos.json`;
+        const ORDENES_URL = `${BASE_URL}/ordenes.json`; // Necesario para leer las ventas
+        
+        let products = [];
+        let ordenes = [];
+
+        // Variables para destruir gráficas viejas al actualizar
+        let gVentas = null;
+        let gIngresos = null;
+        let gStock = null;
+
+        function setNetworkStatus(state) {
+            const statusBadge = document.getElementById('networkStatus');
+            if(state === 'pending') {
+                statusBadge.className = 'badge bg-warning text-dark fs-6';
+                statusBadge.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sincronizando...';
+            } else if(state === 'success') {
+                statusBadge.className = 'badge bg-success fs-6';
+                statusBadge.innerHTML = '<i class="bi bi-check-circle"></i> Conectado a Firebase';
+            } else if(state === 'error') {
+                statusBadge.className = 'badge bg-danger fs-6 position-fixed top-0 start-50 translate-middle-x mt-3 shadow-lg z-3';
+                statusBadge.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Error de conexión';
+            }
+        }
+
+        function showToast(message, colorClass = "bg-success") {
+            const toastEl = document.getElementById('actionToast');
+            toastEl.className = `toast align-items-center border-0 rounded-3 ${colorClass}`;
+            document.getElementById('toastMessage').innerHTML = `<i class="bi bi-info-circle me-2"></i> ${message}`;
+            new bootstrap.Toast(toastEl).show();
+        }
+
+        // ==========================================
+        // 1. CARGA DE DATOS Y GRÁFICAS
+        // ==========================================
+        
+        async function cargarTodo() {
+            setNetworkStatus('pending');
+            try {
+                // Leer Productos
+                const resProd = await fetch(PRODUCTOS_URL);
+                const dataProd = await resProd.json();
+                products = []; 
+                if(dataProd) {
+                    for(let id in dataProd) { products.push({ id_fb: id, ...dataProd[id] }); }
+                }
+                
+                // Leer Órdenes (Ventas)
+                const resOrd = await fetch(ORDENES_URL);
+                const dataOrd = await resOrd.json();
+                ordenes = [];
+                if(dataOrd) {
+                    for(let id in dataOrd) { ordenes.push(dataOrd[id]); }
+                }
+
+                applyAdminFilters(); 
+                generarGraficas();
+                setNetworkStatus('success');
+            } catch(e) { 
+                console.error(e);
+                setNetworkStatus('error'); 
+            }
+        }
+
+        function generarGraficas() {
+            // 1. Procesar datos para "Productos Más Vendidos"
+            const ventasPorProducto = {};
+            // 2. Procesar datos para "Tendencia de Ingresos"
+            const ingresosPorFecha = {};
+            // 3. Procesar datos para "Stock por Categoría"
+            const stockPorCategoria = {};
+
+            // Analizar el inventario actual
+            products.forEach(p => {
+                const cat = p.category || 'Otros';
+                stockPorCategoria[cat] = (stockPorCategoria[cat] || 0) + parseInt(p.stock || 0);
+            });
+
+            // Analizar el historial de órdenes
+            ordenes.forEach(orden => {
+                // Agrupar ingresos por fecha (DD/MM/YYYY)
+                const fechaDate = new Date(orden.fecha);
+                const fechaStr = fechaDate.toLocaleDateString();
+                ingresosPorFecha[fechaStr] = (ingresosPorFecha[fechaStr] || 0) + parseFloat(orden.montoTotal || 0);
+
+                // Agrupar ventas por producto
+                if (orden.items) {
+                    orden.items.forEach(item => {
+                        const nombre = item.name || 'Desconocido';
+                        ventasPorProducto[nombre] = (ventasPorProducto[nombre] || 0) + parseInt(item.cantidad || 1);
+                    });
+                }
+            });
+
+            // Configurar Gráfica 1 (Barras) - Más vendidos
+            if (gVentas) gVentas.destroy();
+            gVentas = new Chart(document.getElementById('chartBestSellers'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(ventasPorProducto),
+                    datasets: [{
+                        label: 'Unidades Vendidas',
+                        data: Object.values(ventasPorProducto),
+                        backgroundColor: '#0d6efd',
+                        borderRadius: 5
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            // Configurar Gráfica 2 (Líneas) - Ingresos
+            if (gIngresos) gIngresos.destroy();
+            gIngresos = new Chart(document.getElementById('chartRevenue'), {
+                type: 'line',
+                data: {
+                    labels: Object.keys(ingresosPorFecha),
+                    datasets: [{
+                        label: 'Ingresos ($)',
+                        data: Object.values(ingresosPorFecha),
+                        borderColor: '#198754',
+                        backgroundColor: 'rgba(25, 135, 84, 0.2)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            // Configurar Gráfica 3 (Dona) - Stock
+            if (gStock) gStock.destroy();
+            gStock = new Chart(document.getElementById('chartStock'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(stockPorCategoria),
+                    datasets: [{
+                        data: Object.values(stockPorCategoria),
+                        backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6c757d'],
+                        borderWidth: 0
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+            });
+        }
+
+        // ==========================================
+        // 2. FORMULARIO Y TABLA (CRUD)
+        // ==========================================
+
+        document.getElementById('formProducto').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const precio = parseFloat(document.getElementById('prodPrecio').value);
+            const stock = parseInt(document.getElementById('prodStock').value);
+
+            if (precio <= 0) return showToast("El precio debe ser mayor a 0", "bg-danger");
+            if (stock < 0) return showToast("El stock no puede ser negativo", "bg-danger");
+
+            setNetworkStatus('pending');
+            const nuevoProducto = {
+                name: document.getElementById('prodNombre').value, price: precio,
+                category: document.getElementById('prodCategoria').value, stock: stock,
+                imagen: document.getElementById('prodImagen').value
+            };
+            try {
+                await fetch(PRODUCTOS_URL, { method: 'POST', body: JSON.stringify(nuevoProducto) });
+                showToast("Producto registrado con éxito");
+                document.getElementById('formProducto').reset();
+                cargarTodo(); // Recargar tabla y gráficas
+            } catch(e) { setNetworkStatus('error'); }
+        });
+
+        function renderAdminTable(items) {
+            const tbody = document.getElementById("inventoryTableBody");
+            tbody.innerHTML = "";
+            if (items.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">Inventario vacío</td></tr>`;
+                return;
+            }
+            items.forEach(product => {
+                const isCritical = product.stock <= 0;
+                tbody.innerHTML += `
+                    <tr class="${isCritical ? 'table-danger' : ''}">
+                        <td><img src="${product.imagen || 'https://via.placeholder.com/50'}" style="width: 40px; height: 40px; object-fit: cover;" class="rounded shadow-sm"></td>
+                        <td class="fw-bold" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${product.name}</td>
+                        <td><span class="badge bg-secondary">${product.category}</span></td>
+                        <td class="text-success fw-bold">$${parseFloat(product.price).toFixed(2)}</td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm shadow-sm" role="group">
+                                <button type="button" class="btn btn-outline-danger fw-bold" onclick="ajustarStock('${product.id_fb}', ${product.stock}, -1)">-</button>
+                                <button type="button" class="btn btn-light fw-bold px-3 border-top border-bottom" disabled>${product.stock}</button>
+                                <button type="button" class="btn btn-outline-success fw-bold" onclick="ajustarStock('${product.id_fb}', ${product.stock}, 1)">+</button>
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-danger btn-sm shadow-sm" onclick="eliminarProducto('${product.id_fb}')"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function ajustarStock(id_fb, currentStock, delta) {
+            const newStock = currentStock + delta;
+            if (newStock < 0) return showToast("El stock no puede ser negativo", "bg-warning text-dark");
+            
+            setNetworkStatus('pending');
+            try {
+                await fetch(`${BASE_URL}/productos/${id_fb}.json`, { 
+                    method: 'PATCH', body: JSON.stringify({ stock: newStock }) 
+                });
+                showToast("Stock actualizado", "bg-info text-dark");
+                cargarTodo(); // Recargar para actualizar gráfica
+            } catch(e) { setNetworkStatus('error'); }
+        }
+
+        async function eliminarProducto(id_fb) {
+            if(!confirm("¿Estás seguro de eliminar permanentemente este producto del servidor?")) return;
+            setNetworkStatus('pending');
+            try {
+                await fetch(`${BASE_URL}/productos/${id_fb}.json`, { method: 'DELETE' });
+                showToast("Producto eliminado", "bg-danger");
+                cargarTodo();
+            } catch(e) { setNetworkStatus('error'); }
+        }
+
+        function applyAdminFilters() {
+            const sortValue = document.getElementById("sortFilterAdmin").value;
+            let filteredProducts = [...products];
+
+            if (sortValue === 'priceAsc') filteredProducts.sort((a,b) => a.price - b.price);
+            else if (sortValue === 'priceDesc') filteredProducts.sort((a,b) => b.price - a.price);
+            else if (sortValue === 'nameAsc') filteredProducts.sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+            else if (sortValue === 'stockAsc') filteredProducts.sort((a,b) => a.stock - b.stock);
+
+            renderAdminTable(filteredProducts);
+        }
+
+        document.getElementById("sortFilterAdmin").addEventListener("change", applyAdminFilters);
+        
+        // Iniciar
+        cargarTodo();
+    </script>
+</body>
+</html>

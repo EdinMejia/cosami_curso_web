@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechStore | Tienda</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Poppins', sans-serif; background-color: #f4f6f9; }
+        .card-hover { transition: transform 0.3s ease, box-shadow 0.3s ease; border: none; border-radius: 12px; overflow: hidden; }
+        .card-hover:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.1) !important; }
+        .sticky-cart { position: sticky; top: 20px; }
+        /* Ocultar flechas del input number nativo */
+        input[type="number"]::-webkit-inner-spin-button, 
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body class="bg-light pb-5"> 
+    
+    <!-- Barra de Estado de Red (Navbar) -->
+    <nav class="navbar navbar-dark bg-dark mb-4 shadow">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand fw-bold" href="#"><i class="bi bi-cpu"></i> TechStore Cliente</a>
+            <div>
+                <a href="admin.html" class="btn btn-outline-light btn-sm me-3"><i class="bi bi-person-badge"></i> Ir a Admin</a>
+                <span id="networkStatus" class="badge bg-success fs-6"><i class="bi bi-check-circle"></i> Conectado a Firebase</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container-fluid px-4 px-md-5">
+        <div class="row g-4">
+            
+            <!-- CATÁLOGO -->
+            <div class="col-lg-8 col-xl-9">
+                <!-- Buscador, Filtro y Ordenamiento -->
+                <section class="p-3 border rounded bg-white shadow-sm mb-4 d-flex flex-wrap align-items-center gap-3">
+                    <div class="flex-grow-1">
+                        <label for="searchInput" class="fw-bold text-muted small"><i class="bi bi-search"></i> Buscar:</label>
+                        <input type="text" id="searchInput" placeholder="Ej. Teclado..." class="form-control bg-light">
+                    </div>
+                    <div>
+                        <label for="categoryFilter" class="fw-bold text-muted small"><i class="bi bi-funnel"></i> Categoría:</label>
+                        <select id="categoryFilter" class="form-select bg-light">
+                            <option value="Todos">Todas</option>
+                            <option value="Periféricos">Periféricos</option>
+                            <option value="Pantallas">Pantallas</option>
+                            <option value="Audio">Audio</option>
+                            <option value="Accesorios">Accesorios</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="sortFilter" class="fw-bold text-muted small"><i class="bi bi-sort-down"></i> Ordenar por:</label>
+                        <select id="sortFilter" class="form-select bg-light text-primary fw-bold">
+                            <option value="nameAsc">Nombre: A - Z</option>
+                            <option value="priceAsc">Precio: Menor a Mayor</option>
+                            <option value="priceDesc">Precio: Mayor a Menor</option>
+                            <option value="stockAsc">Stock: Crítico primero</option>
+                        </select>
+                    </div>
+                </section>
+                
+                <section>
+                    <h3 class="fw-bold mb-3"><i class="bi bi-box-seam"></i> Catálogo Disponible</h3>
+                    <div id="productsContainer" class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4"></div>
+                </section>
+            </div>
+
+            <!-- CARRITO -->
+            <div class="col-lg-4 col-xl-3">
+                <section class="p-4 border rounded bg-white shadow-lg sticky-cart">
+                    <h4 class="fw-bold text-center mb-4"><i class="bi bi-cart4 text-primary fs-2"></i><br>Tu Orden</h4>
+                    <ul id="cartList" class="list-group list-group-flush mb-4">
+                        <li class="list-group-item text-center text-muted">El carrito está vacío</li>
+                    </ul>
+                    <div class="bg-light p-3 rounded text-center mb-3 border">
+                        <span class="text-muted small">Total a pagar</span>
+                        <h2 class="fw-bold text-success m-0">$<span id="cartTotal">0.00</span></h2>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button id="btnFinalizarCompra" class="btn btn-success btn-lg fw-bold shadow-sm"><i class="bi bi-credit-card"></i> Finalizar Compra</button>
+                        <button id="clearCartBtn" class="btn btn-outline-danger shadow-sm"><i class="bi bi-trash"></i> Vaciar Carrito</button>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <!-- Feedback Visual Flotante (Toast) -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-4">
+        <div id="actionToast" class="toast align-items-center border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body fw-bold text-white fs-6" id="toastMessage"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // URL FIREBASE 
+        const BASE_URL = "https://techstore-web-786c8-default-rtdb.firebaseio.com"; 
+        const PRODUCTOS_URL = `${BASE_URL}/productos.json`;
+        const CARRITO_URL = `${BASE_URL}/carrito.json`;
+        const ORDENES_URL = `${BASE_URL}/ordenes.json`;
+
+        let products = [];
+        let cart = []; 
+        
+        function setNetworkStatus(state) {
+            const statusBadge = document.getElementById('networkStatus');
+            if(state === 'pending') {
+                statusBadge.className = 'badge bg-warning text-dark fs-6';
+                statusBadge.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sincronizando...';
+            } else if(state === 'success') {
+                statusBadge.className = 'badge bg-success fs-6';
+                statusBadge.innerHTML = '<i class="bi bi-check-circle"></i> Conectado a Firebase';
+            } else if(state === 'error') {
+                statusBadge.className = 'badge bg-danger fs-6 position-fixed top-0 start-50 translate-middle-x mt-3 shadow-lg z-3';
+                statusBadge.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Error de conexión';
+            }
+        }
+
+        function showToast(message, colorClass = "bg-success") {
+            const toastEl = document.getElementById('actionToast');
+            toastEl.className = `toast align-items-center border-0 rounded-3 ${colorClass}`;
+            document.getElementById('toastMessage').innerHTML = `<i class="bi bi-info-circle me-2"></i> ${message}`;
+            new bootstrap.Toast(toastEl).show();
+        }
+
+        async function cargarCatalogo() {
+            setNetworkStatus('pending');
+            try {
+                const res = await fetch(PRODUCTOS_URL);
+                if (!res.ok) throw new Error("Error en servidor");
+                const data = await res.json();
+                products = []; 
+                if(data) {
+                    for(let id in data) { products.push({ id_fb: id, ...data[id] }); }
+                }
+                applyFilters(); 
+                setNetworkStatus('success');
+            } catch(e) { 
+                console.error(e); 
+                setNetworkStatus('error');
+            }
+        }
+
+        function renderProducts(items) {
+            const container = document.getElementById("productsContainer");
+            container.innerHTML = "";
+            
+            const availableItems = items.filter(p => p.stock > 0);
+
+            if (availableItems.length === 0) {
+                container.innerHTML = `<div class="col-12 text-center py-5"><p class="text-muted fs-5">No hay productos disponibles.</p></div>`;
+                return;
+            }
+            
+            availableItems.forEach(product => {
+                const imgUrl = product.imagen || 'https://via.placeholder.com/300x200?text=Sin+Imagen';
+                
+                const colDiv = document.createElement("div");
+                colDiv.className = "col";
+                colDiv.innerHTML = `
+                <article class="card card-hover h-100 shadow-sm border-0">
+                    <div class="position-relative">
+                        <img src="${imgUrl}" class="card-img-top p-3" style="height:220px; object-fit:contain;" alt="Producto">
+                        <span class="position-absolute top-0 end-0 mt-3 me-3 badge rounded-pill bg-primary shadow-sm">${product.category || ''}</span>
+                    </div>
+                    <div class="card-body d-flex flex-column bg-light rounded-bottom">
+                        <h5 class="card-title fw-bold text-dark">${product.name}</h5>
+                        <p class="card-text mb-1 text-muted small"><i class="bi bi-boxes"></i> Stock Disponible: ${product.stock}</p>
+                        <h3 class="card-text fw-bold text-success mb-3">$${parseFloat(product.price).toFixed(2)}</h3>
+                        
+                        <!-- Botones + y - en el Producto (Lado Comprador) -->
+                        <div class="input-group input-group-sm mb-3">
+                            <button class="btn btn-outline-primary fw-bold px-3" type="button" onclick="document.getElementById('qty-${product.id_fb}').stepDown()">-</button>
+                            <input type="number" id="qty-${product.id_fb}" class="form-control text-center fw-bold bg-white" value="1" min="1" max="${product.stock}" readonly>
+                            <button class="btn btn-outline-primary fw-bold px-3" type="button" onclick="document.getElementById('qty-${product.id_fb}').stepUp()">+</button>
+                        </div>
+                        
+                        <button class="btn btn-primary w-100 fw-bold mt-auto" onclick="addToCart('${product.id_fb}')">
+                            <i class="bi bi-cart-plus"></i> Añadir al Carrito
+                        </button>
+                    </div>
+                </article>
+                `;
+                container.appendChild(colDiv);
+            });
+        }
+
+        async function addToCart(productId_fb) {
+            const product = products.find(p => p.id_fb === productId_fb);
+            const inputElement = document.getElementById(`qty-${productId_fb}`);
+            const cantidad = parseInt(inputElement.value) || 1;
+
+            if (product && product.stock >= cantidad && cantidad > 0) {
+                setNetworkStatus('pending');
+                try {
+                    const itemToCart = { ...product, cantidad: cantidad };
+                    await fetch(CARRITO_URL, { method: 'POST', body: JSON.stringify(itemToCart) });
+                    await fetch(`${BASE_URL}/productos/${productId_fb}.json`, { 
+                        method: 'PATCH', body: JSON.stringify({ stock: product.stock - cantidad }) 
+                    });
+                    
+                    showToast(`¡Añadido al carrito!`, "bg-success");
+                    // Resetear el input numérico a 1
+                    inputElement.value = 1;
+                    
+                    obtenerCarritoNube();
+                    cargarCatalogo(); 
+                } catch(e) { setNetworkStatus('error'); }
+            }
+        }
+
+        async function obtenerCarritoNube() {
+            setNetworkStatus('pending');
+            try {
+                const res = await fetch(CARRITO_URL);
+                const data = await res.json();
+                cart = []; 
+                if(data) {
+                    for(let id in data) { cart.push({ id_fb_carrito: id, ...data[id] }); }
+                }
+                updateCart(); 
+                setNetworkStatus('success');
+            } catch(e) { setNetworkStatus('error'); }
+        }
+
+        function updateCart() {
+            const cartList = document.getElementById("cartList");
+            const cartTotal = document.getElementById("cartTotal");
+            cartList.innerHTML = "";
+            
+            if (cart.length === 0) {
+                cartList.innerHTML = "<li class='list-group-item text-center text-muted bg-transparent border-0 pt-4'>El carrito está vacío</li>";
+                cartTotal.textContent = "0.00";
+                return;
+            }
+            
+            let total = 0;
+            cart.forEach((item) => {
+                const subtotal = parseFloat(item.price) * parseInt(item.cantidad);
+                total += subtotal;
+                
+                // Diseño de carrito sin truncar y con botones + / -
+                cartList.innerHTML += `
+                    <li class="list-group-item bg-transparent px-0 py-3 border-bottom">
+                        <div class="d-flex flex-column w-100">
+                            <!-- Nombre completo sin truncar -->
+                            <div class="fw-bold mb-2 lh-sm text-wrap" style="word-break: break-word; font-size: 0.95rem;">
+                                ${item.name}
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-end mt-1">
+                                <div class="text-success fw-bold fs-5">$${subtotal.toFixed(2)}</div>
+                                
+                                <div class="d-flex align-items-center gap-2">
+                                    <!-- Botoncitos + y - en el carrito -->
+                                    <div class="btn-group shadow-sm" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary fw-bold" onclick="updateCartItemQty('${item.id_fb_carrito}', '${item.id_fb}', -1, ${item.cantidad})">-</button>
+                                        <button type="button" class="btn btn-sm btn-light fw-bold px-2 text-dark" disabled>${item.cantidad}</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary fw-bold" onclick="updateCartItemQty('${item.id_fb_carrito}', '${item.id_fb}', 1, ${item.cantidad})">+</button>
+                                    </div>
+                                    
+                                    <!-- Botón Basurero -->
+                                    <button class="btn btn-sm btn-outline-danger shadow-sm" onclick="removeFromCart('${item.id_fb_carrito}', '${item.id_fb}', ${item.cantidad})">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </li>`;
+            });
+            cartTotal.textContent = total.toFixed(2);
+        }
+
+        // NUEVA FUNCIÓN: Actualizar cantidad directo desde el carrito
+        async function updateCartItemQty(id_fb_carrito, id_fb_producto, delta, currentQty) {
+            const prod = products.find(p => p.id_fb === id_fb_producto);
+            if (!prod) return;
+
+            // Validaciones
+            if (delta === 1 && prod.stock <= 0) {
+                return showToast("¡No hay más unidades en bodega!", "bg-danger");
+            }
+            if (delta === -1 && currentQty <= 1) {
+                // Si la cantidad llega a cero, borra el producto por completo del carrito
+                return removeFromCart(id_fb_carrito, id_fb_producto, 1);
+            }
+
+            setNetworkStatus('pending');
+            try {
+                const newQty = currentQty + delta;
+                
+                // Actualiza cantidad en carrito
+                await fetch(`${BASE_URL}/carrito/${id_fb_carrito}.json`, { 
+                    method: 'PATCH', body: JSON.stringify({ cantidad: newQty }) 
+                });
+                
+                // Devuelve o quita 1 del stock de inventario
+                const newStock = parseInt(prod.stock) - delta;
+                await fetch(`${BASE_URL}/productos/${id_fb_producto}.json`, { 
+                    method: 'PATCH', body: JSON.stringify({ stock: newStock }) 
+                });
+                
+                obtenerCarritoNube();
+                cargarCatalogo();
+            } catch(e) { setNetworkStatus('error'); }
+        }
+
+        async function removeFromCart(id_fb_carrito, id_fb_producto, qtyToRemove) {
+            setNetworkStatus('pending');
+            try {
+                await fetch(`${BASE_URL}/carrito/${id_fb_carrito}.json`, { method: 'DELETE' });
+                if(id_fb_producto && qtyToRemove) {
+                    const prod = products.find(p => p.id_fb === id_fb_producto);
+                    if(prod) {
+                        await fetch(`${BASE_URL}/productos/${id_fb_producto}.json`, { 
+                            method: 'PATCH', body: JSON.stringify({ stock: parseInt(prod.stock) + parseInt(qtyToRemove) }) 
+                        });
+                    }
+                }
+                obtenerCarritoNube();
+                cargarCatalogo();
+            } catch(e) { setNetworkStatus('error'); }
+        }
+
+        document.getElementById("clearCartBtn").addEventListener("click", async () => {
+            if (cart.length === 0) return;
+            setNetworkStatus('pending');
+            try {
+                for(let item of cart) {
+                    const prod = products.find(p => p.id_fb === item.id_fb);
+                    if(prod) {
+                        await fetch(`${BASE_URL}/productos/${item.id_fb}.json`, { 
+                            method: 'PATCH', body: JSON.stringify({ stock: parseInt(prod.stock) + parseInt(item.cantidad) }) 
+                        });
+                    }
+                }
+                await fetch(CARRITO_URL, { method: 'DELETE' });
+                showToast("Carrito vaciado.", "bg-warning text-dark");
+                obtenerCarritoNube();
+                cargarCatalogo();
+            } catch(e) { setNetworkStatus('error'); }
+        });
+
+        document.getElementById("btnFinalizarCompra").addEventListener("click", async () => {
+            if(cart.length === 0) return;
+            setNetworkStatus('pending');
+            try {
+                let total = cart.reduce((acc, curr) => acc + (parseFloat(curr.price) * parseInt(curr.cantidad)), 0);
+                await fetch(ORDENES_URL, { method: 'POST', body: JSON.stringify({ fecha: new Date().toISOString(), items: cart, montoTotal: total }) });
+                await fetch(CARRITO_URL, { method: 'DELETE' });
+                showToast("¡Compra procesada con éxito!", "bg-primary");
+                obtenerCarritoNube(); 
+            } catch(e) { setNetworkStatus('error'); }
+        });
+
+        function applyFilters() {
+            const searchTerm = document.getElementById("searchInput").value.toLowerCase();
+            const selectedCategory = document.getElementById("categoryFilter").value;
+            const sortValue = document.getElementById("sortFilter").value;
+
+            let filteredProducts = products.filter(product => {
+                const nombreSeguro = (product.name || "").toLowerCase();
+                const categoriaSegura = (product.category || "").toLowerCase();
+                const matchesSearch = nombreSeguro.includes(searchTerm) || categoriaSegura.includes(searchTerm);
+                const matchesCategory = selectedCategory === "Todos" || product.category === selectedCategory;
+                return matchesSearch && matchesCategory;
+            });
+
+            if (sortValue === 'priceAsc') filteredProducts.sort((a,b) => a.price - b.price);
+            else if (sortValue === 'priceDesc') filteredProducts.sort((a,b) => b.price - a.price);
+            else if (sortValue === 'nameAsc') filteredProducts.sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+            else if (sortValue === 'stockAsc') filteredProducts.sort((a,b) => a.stock - b.stock);
+
+            renderProducts(filteredProducts);
+        }
+
+        document.getElementById("searchInput").addEventListener("input", applyFilters);
+        document.getElementById("categoryFilter").addEventListener("change", applyFilters);
+        document.getElementById("sortFilter").addEventListener("change", applyFilters);
+        
+        cargarCatalogo();     
+        obtenerCarritoNube(); 
+    </script>
+</body>
+</html>
