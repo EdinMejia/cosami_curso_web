@@ -223,11 +223,27 @@
         formProducto.addEventListener('submit', async (e) => {
             e.preventDefault();
             toggleSpinner(true);
+
+            const precioIngresado = parseFloat(document.getElementById('prodPrecio').value);
+            const stockIngresado = parseInt(document.getElementById('prodStock').value);
+
+            // NUEVA VALIDACIÓN SEGÚN EL LABORATORIO
+            if (precioIngresado <= 0) {
+                showToast("El precio debe ser mayor a 0", "bg-danger");
+                toggleSpinner(false);
+                return;
+            }
+            if (stockIngresado < 0) {
+                showToast("El stock no puede ser negativo", "bg-danger");
+                toggleSpinner(false);
+                return;
+            }
+
             const nuevoProducto = {
                 name: document.getElementById('prodNombre').value,
-                price: parseFloat(document.getElementById('prodPrecio').value),
+                price: precioIngresado,
                 category: document.getElementById('prodCategoria').value,
-                stock: parseInt(document.getElementById('prodStock').value),
+                stock: stockIngresado,
                 imagen: document.getElementById('prodImagen').value
             };
             try {
