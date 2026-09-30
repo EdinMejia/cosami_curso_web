@@ -52,7 +52,7 @@
         
         <div class="text-center">
             <div id="loadingSpinner" class="spinner-border text-primary d-none mb-4" role="status" style="width: 3rem; height: 3rem;">
-                <span class="visually-hidden">Cargando...</span>
+                <span class="visually-hidden"></span>
             </div>
         </div>
 
@@ -151,7 +151,7 @@
         <div id="cartToast" class="toast align-items-center border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
             <div class="d-flex">
                 <div class="toast-body fw-bold text-white fs-6" id="toastMessage">
-                    <i class="bi bi-info-circle me-2"></i> ¡Acción exitosa!
+                    <i class="bi bi-info-circle me-2"></i>
                 </div>
                 <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
             </div>
@@ -268,29 +268,36 @@
             }
             items.forEach(product => {
                 const imgUrl = product.imagen || 'https://via.placeholder.com/300x200?text=Sin+Imagen';
+                const hasStock = product.stock > 0;
                 
                 const colDiv = document.createElement("div");
                 colDiv.className = "col";
                 colDiv.innerHTML = `
-                <article class="card card-hover h-100 shadow-sm border-0">
-                    <div class="position-relative">
-                        <img src="${imgUrl}" class="card-img-top p-3" style="height:220px; object-fit:contain;" alt="Producto">
-                        <span class="position-absolute top-0 end-0 mt-3 me-3 badge rounded-pill bg-primary shadow-sm">${product.category || 'Sin Categoría'}</span>
-                    </div>
-                    <div class="card-body d-flex flex-column bg-light rounded-bottom">
-                        <h5 class="card-title fw-bold text-dark">${product.name || 'Sin Nombre'}</h5>
-                        <p class="card-text mb-1 text-muted small"><i class="bi bi-boxes"></i> Stock: ${product.stock || 0}</p>
-                        <h3 class="card-text fw-bold text-success mb-3">$${parseFloat(product.price || 0).toFixed(2)}</h3>
-                        <div class="mt-auto d-flex justify-content-between gap-2">
-                            <button class="btn btn-primary flex-grow-1 fw-bold" onclick="addToCart('${product.id_fb}')">
-                                <i class="bi bi-cart-plus"></i> Añadir
-                            </button>
-                            <button class="btn btn-outline-danger px-3" onclick="eliminarProducto('${product.id_fb}')" title="Eliminar producto">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                </article>
+                  <article class="card card-hover h-100 shadow-sm border-0">
+                      <div class="position-relative">
+                          <img src="${imgUrl}" class="card-img-top p-3" style="height:220px; object-fit:contain; ${!hasStock ? 'filter: grayscale(100%);' : ''}" alt="Producto">
+                          <span class="position-absolute top-0 end-0 mt-3 me-3 badge rounded-pill bg-primary shadow-sm">${product.category || 'Sin Categoría'}</span>
+                      </div>
+                      <div class="card-body d-flex flex-column bg-light rounded-bottom">
+                          <h5 class="card-title fw-bold text-dark">${product.name || 'Sin Nombre'}</h5>
+                          <p class="card-text mb-1 text-muted small"><i class="bi bi-boxes"></i> Stock: <span class="${hasStock ? '' : 'text-danger fw-bold'}">${product.stock || 0}</span></p>
+                          <h3 class="card-text fw-bold text-success mb-3">$${parseFloat(product.price || 0).toFixed(2)}</h3>
+                          
+                          <div class="input-group input-group-sm mb-3">
+                              <span class="input-group-text bg-white text-muted">Cant.</span>
+                              <input type="number" id="qty-${product.id_fb}" class="form-control text-center fw-bold" value="${hasStock ? 1 : 0}" min="1" max="${product.stock}" ${!hasStock ? 'disabled' : ''}>
+                          </div>
+
+                          <div class="mt-auto d-flex justify-content-between gap-2">
+                              <button class="btn btn-primary flex-grow-1 fw-bold" onclick="addToCart('${product.id_fb}')" ${!hasStock ? 'disabled' : ''}>
+                                  <i class="bi bi-cart-plus"></i> ${hasStock ? 'Añadir' : 'Agotado'}
+                              </button>
+                              <button class="btn btn-outline-danger px-3" onclick="eliminarProducto('${product.id_fb}')">
+                                  <i class="bi bi-trash"></i>
+                              </button>
+                          </div>
+                      </div>
+                  </article>
                 `;
                 productsContainer.appendChild(colDiv);
             });
@@ -309,27 +316,29 @@
 
         async function addToCart(productId_fb) {
             const product = products.find(p => p.id_fb === productId_fb);
-            
+            const qtyInput = document.getElementById(`qty-${productId_fb}`);
+            const cantidad = parseInt(qtyInput.value) || 1;
+
             if (product) {
-                // Validación extra: No dejar comprar si no hay stock
-                if (product.stock <= 0) {
-                    showToast("¡Este producto está agotado!", "bg-danger");
+                if (product.stock < cantidad || cantidad <= 0) {
+                    showToast("¡Stock insuficiente para esta cantidad!", "bg-danger");
                     return;
                 }
 
                 toggleSpinner(true);
                 try {
-                    await fetch(CARRITO_URL, { method: 'POST', body: JSON.stringify(product) });
-                    const nuevoStock = product.stock - 1;
+                    const itemToCart = { ...product, cantidad: cantidad };
+                    await fetch(CARRITO_URL, { method: 'POST', body: JSON.stringify(itemToCart) });
+                    
+                    const nuevoStock = product.stock - cantidad;
                     await fetch(`${BASE_URL}/productos/${productId_fb}.json`, { 
-                        method: 'PATCH', 
+                        method: 'PATCH',
                         body: JSON.stringify({ stock: nuevoStock }) 
                     });
 
-                    showToast(`¡${product.name} añadido al carrito!`, "bg-success");
-                    obtenerCarritoNube(); 
+                    showToast(`¡${cantidad}x ${product.name} añadido!`, "bg-success");
+                    obtenerCarritoNube();
                     cargarCatalogo(); 
-
                 } catch(e) { console.error(e); }
                 toggleSpinner(false);
             }
@@ -359,15 +368,20 @@
             let total = 0;
             cart.forEach((item) => {
                 const precioNum = parseFloat(item.price) || 0;
-                total += precioNum;
+                const qty = parseInt(item.cantidad) || 1; 
+                const subtotal = precioNum * qty;
+                total += subtotal;
+                
                 const li = document.createElement("li");
                 li.className = "list-group-item d-flex justify-content-between align-items-center bg-transparent px-0";
                 li.innerHTML = `
                     <div class="me-auto">
-                        <div class="fw-bold text-truncate" style="max-width: 150px;" title="${item.name}">${item.name || 'Producto'}</div>
-                        <span class="text-success fw-bold">$${precioNum.toFixed(2)}</span>
+                        <div class="fw-bold text-truncate" style="max-width: 150px;" title="${item.name}">
+                            <span class="badge bg-primary rounded-pill me-1">${qty}x</span>${item.name || 'Producto'}
+                        </div>
+                        <div class="text-success fw-bold">$${subtotal.toFixed(2)} <span class="text-muted fw-normal small">($${precioNum.toFixed(2)} c/u)</span></div>
                     </div>
-                    <button class="btn btn-sm btn-outline-danger rounded-circle" onclick="removeFromCart('${item.id_fb_carrito}')">
+                    <button class="btn btn-sm btn-outline-danger rounded-circle ms-2" onclick="removeFromCart('${item.id_fb_carrito}', '${item.id_fb}', ${qty})">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 `;
@@ -376,11 +390,24 @@
             cartTotal.textContent = total.toFixed(2);
         }
 
-        async function removeFromCart(id_fb_carrito) {
+        async function removeFromCart(id_fb_carrito, id_fb_producto, qtyToRemove) {
             toggleSpinner(true);
             try {
                 await fetch(`${BASE_URL}/carrito/${id_fb_carrito}.json`, { method: 'DELETE' });
+                
+                if(id_fb_producto && qtyToRemove) {
+                    const productCurrent = products.find(p => p.id_fb === id_fb_producto);
+                    if(productCurrent) {
+                        const restoredStock = parseInt(productCurrent.stock || 0) + parseInt(qtyToRemove);
+                        await fetch(`${BASE_URL}/productos/${id_fb_producto}.json`, { 
+                            method: 'PATCH',
+                            body: JSON.stringify({ stock: restoredStock }) 
+                        });
+                    }
+                }
+                
                 obtenerCarritoNube();
+                cargarCatalogo();
             } catch(e) { console.error(e); }
             toggleSpinner(false);
         }
@@ -389,9 +416,21 @@
             if (cart.length === 0) return;
             toggleSpinner(true);
             try {
+                for(let item of cart) {
+                    const productCurrent = products.find(p => p.id_fb === item.id_fb);
+                    if(productCurrent) {
+                        const qty = parseInt(item.cantidad) || 1;
+                        const restoredStock = parseInt(productCurrent.stock || 0) + qty;
+                        await fetch(`${BASE_URL}/productos/${item.id_fb}.json`, { 
+                            method: 'PATCH',
+                            body: JSON.stringify({ stock: restoredStock }) 
+                        });
+                    }
+                }
                 await fetch(CARRITO_URL, { method: 'DELETE' });
-                showToast("Carrito vaciado", "bg-warning text-dark");
+                showToast("Carrito vaciado. Stock devuelto.", "bg-warning text-dark");
                 obtenerCarritoNube();
+                cargarCatalogo();
             } catch(e) { console.error(e); }
             toggleSpinner(false);
         });
@@ -403,7 +442,7 @@
             }
             toggleSpinner(true);
             try {
-                let total = cart.reduce((acc, curr) => acc + parseFloat(curr.price || 0), 0);
+                let total = cart.reduce((acc, curr) => acc + (parseFloat(curr.price || 0) * (parseInt(curr.cantidad) || 1)), 0);
                 
                 const nuevaOrden = {
                     fecha: new Date().toISOString(),
